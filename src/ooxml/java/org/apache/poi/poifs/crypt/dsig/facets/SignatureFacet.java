@@ -20,30 +20,9 @@
    package from the eID Applet project
    http://code.google.com/p/eid-applet/source/browse/trunk/README.txt  
    Copyright (C) 2008-2014 FedICT.
-   ================================================================= */ 
+   ================================================================= */
 
 package org.apache.poi.poifs.crypt.dsig.facets;
-
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.security.AccessController;
-import java.security.GeneralSecurityException;
-import java.security.MessageDigest;
-import java.security.PrivilegedAction;
-import java.security.Provider;
-import java.security.Security;
-import java.util.List;
-
-import javax.xml.XMLConstants;
-import javax.xml.crypto.MarshalException;
-import javax.xml.crypto.dsig.DigestMethod;
-import javax.xml.crypto.dsig.Reference;
-import javax.xml.crypto.dsig.Transform;
-import javax.xml.crypto.dsig.XMLObject;
-import javax.xml.crypto.dsig.XMLSignature;
-import javax.xml.crypto.dsig.XMLSignatureException;
-import javax.xml.crypto.dsig.XMLSignatureFactory;
-import javax.xml.crypto.dsig.spec.TransformParameterSpec;
 
 import org.apache.jcp.xml.dsig.internal.dom.DOMDigestMethod;
 import org.apache.jcp.xml.dsig.internal.dom.DOMReference;
@@ -55,13 +34,22 @@ import org.apache.poi.util.POILogger;
 import org.apache.poi.util.SuppressForbidden;
 import org.w3c.dom.Document;
 
+import javax.xml.XMLConstants;
+import javax.xml.crypto.MarshalException;
+import javax.xml.crypto.dsig.*;
+import javax.xml.crypto.dsig.spec.TransformParameterSpec;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.security.*;
+import java.util.List;
+
 /**
  * JSR105 Signature Facet base class.
  */
 public abstract class SignatureFacet implements SignatureConfigurable {
 
     private static final POILogger LOG = POILogFactory.getLogger(SignatureFacet.class);
-    
+
     public static final String XML_NS = XMLConstants.XMLNS_ATTRIBUTE_NS_URI;
     public static final String XML_DIGSIG_NS = XMLSignature.XMLNS;
     public static final String OO_DIGSIG_NS = PackageNamespaces.DIGITAL_SIGNATURE;
@@ -79,16 +67,16 @@ public abstract class SignatureFacet implements SignatureConfigurable {
      * This method is being invoked by the XML signature service engine during
      * pre-sign phase. Via this method a signature facet implementation can add
      * signature facets to an XML signature.
-     * 
-     * @param document the signature document to be used for imports
+     *
+     * @param document   the signature document to be used for imports
      * @param references list of reference definitions
-     * @param objects objects to be signed/included in the signature document
+     * @param objects    objects to be signed/included in the signature document
      * @throws XMLSignatureException
      */
     public void preSign(
-          Document document
-        , List<Reference> references
-        , List<XMLObject> objects
+            Document document
+            , List<Reference> references
+            , List<XMLObject> objects
     ) throws XMLSignatureException {
         // empty
     }
@@ -108,33 +96,33 @@ public abstract class SignatureFacet implements SignatureConfigurable {
     protected XMLSignatureFactory getSignatureFactory() {
         return signatureConfig.getSignatureFactory();
     }
-    
+
     protected Transform newTransform(String canonicalizationMethod) throws XMLSignatureException {
         return newTransform(canonicalizationMethod, null);
     }
-    
+
     protected Transform newTransform(String canonicalizationMethod, TransformParameterSpec paramSpec)
-    throws XMLSignatureException {
+            throws XMLSignatureException {
         try {
             return getSignatureFactory().newTransform(canonicalizationMethod, paramSpec);
         } catch (GeneralSecurityException e) {
-            throw new XMLSignatureException("unknown canonicalization method: "+canonicalizationMethod, e);
+            throw new XMLSignatureException("unknown canonicalization method: " + canonicalizationMethod, e);
         }
     }
-    
+
     protected Reference newReference(String uri, List<Transform> transforms, String type, String id, byte digestValue[])
-    throws XMLSignatureException {
+            throws XMLSignatureException {
         return newReference(uri, transforms, type, id, digestValue, signatureConfig);
     }
 
     public static Reference newReference(
-          String uri
-        , List<Transform> transforms
-        , String type
-        , String id
-        , byte digestValue[]
-        , SignatureConfig signatureConfig)
-    throws XMLSignatureException {
+            String uri
+            , List<Transform> transforms
+            , String type
+            , String id
+            , byte digestValue[]
+            , SignatureConfig signatureConfig)
+            throws XMLSignatureException {
         // the references appear in the package signature or the package object
         // so we can use the default digest algorithm
         String digestMethodUri = signatureConfig.getDigestMethodUri();
@@ -143,7 +131,7 @@ public abstract class SignatureFacet implements SignatureConfigurable {
         try {
             digestMethod = sigFac.newDigestMethod(digestMethodUri, null);
         } catch (GeneralSecurityException e) {
-            throw new XMLSignatureException("unknown digest method uri: "+digestMethodUri, e);
+            throw new XMLSignatureException("unknown digest method uri: " + digestMethodUri, e);
         }
 
         Reference reference;
@@ -152,18 +140,22 @@ public abstract class SignatureFacet implements SignatureConfigurable {
         } else {
             reference = sigFac.newReference(uri, digestMethod, transforms, type, id, digestValue);
         }
-        
-        brokenJvmWorkaround(reference);
+
+        brokenJvmWorkaround(reference, signatureConfig.getKeyStoreProvider());
 
         return reference;
     }
-    
+
     // helper method ... will be removed soon
-    public static void brokenJvmWorkaround(final Reference reference) {
+    public static void brokenJvmWorkaround(final Reference reference, String keystoreProvider) {
         final DigestMethod digestMethod = reference.getDigestMethod();
         final String digestMethodUri = digestMethod.getAlgorithm();
-        
-        final Provider bcProv = Security.getProvider("BC");
+
+        if (keystoreProvider == null || keystoreProvider.isEmpty()) {
+            keystoreProvider = "BC";
+        }
+
+        final Provider bcProv = Security.getProvider(keystoreProvider);
         if (bcProv != null && !DigestMethod.SHA1.equals(digestMethodUri)) {
             // workaround for https://bugzilla.redhat.com/show_bug.cgi?id=1155012
             // overwrite standard message digest, if a digest <> SHA1 is used
@@ -174,7 +166,7 @@ public abstract class SignatureFacet implements SignatureConfigurable {
                     try {
                         Method m = DOMDigestMethod.class.getDeclaredMethod("getMessageDigestAlgorithm");
                         m.setAccessible(true);
-                        String mdAlgo = (String)m.invoke(digestMethod);
+                        String mdAlgo = (String) m.invoke(digestMethod);
                         MessageDigest md = MessageDigest.getInstance(mdAlgo, bcProv);
                         Field f = DOMReference.class.getDeclaredField("md");
                         f.setAccessible(true);

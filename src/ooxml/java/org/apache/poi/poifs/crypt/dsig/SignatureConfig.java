@@ -78,6 +78,7 @@ public class SignatureConfig {
     private Date executionTime = new Date();
     private PrivateKey key;
     private List<X509Certificate> signingCertificateChain;
+    private String keyStoreProvider = "BC";
 
     /**
      * the optional signature policy service used for XAdES-EPES.
@@ -699,6 +700,20 @@ public class SignatureConfig {
      */
     public void setNamespacePrefixes(Map<String, String> namespacePrefixes) {
         this.namespacePrefixes = namespacePrefixes;
+    }
+
+    /**
+     * @return The current keystore provider
+     */
+    public String getKeyStoreProvider() {
+        return keyStoreProvider;
+    }
+
+    /**
+     * @param keyStoreProvider The keystore provider to use during signing
+     */
+    public void setKeyStoreProvider(String keyStoreProvider) {
+        this.keyStoreProvider = keyStoreProvider;
     }
 
     /**
