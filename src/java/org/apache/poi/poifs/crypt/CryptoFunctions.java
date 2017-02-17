@@ -217,15 +217,9 @@ public class CryptoFunctions {
      *   which depends on a missing bouncy castle provider 
      */
     public static Cipher getCipher(Key key, CipherAlgorithm cipherAlgorithm, ChainingMode chain, byte[] vec, int cipherMode, String padding) {
-        int keySizeInBytes = key.getEncoded().length;
         if (padding == null) padding = "NoPadding";
         
         try {
-            // Ensure the JCE policies files allow for this sized key
-            if (Cipher.getMaxAllowedKeyLength(cipherAlgorithm.jceId) < keySizeInBytes*8) {
-                throw new EncryptedDocumentException("Export Restrictions in place - please install JCE Unlimited Strength Jurisdiction Policy files");
-            }
-
             Cipher cipher;
             if (cipherAlgorithm == CipherAlgorithm.rc4) {
                 cipher = Cipher.getInstance(cipherAlgorithm.jceId);
