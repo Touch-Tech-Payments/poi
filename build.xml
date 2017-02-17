@@ -1621,7 +1621,7 @@ under the License.
         </jar>
 
         <java classname="org.apache.poi.util.OOXMLLite" fork="yes"
-            failonerror="true">
+            failonerror="false">
             <classpath>
                 <pathelement path="${ooxml.lite-merged.dir}/ooxml-lite-merged.jar"/>
             </classpath>
