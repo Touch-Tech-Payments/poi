@@ -1,4 +1,4 @@
-# poi
+# Apache POI
 Mirror of Apache POI
 
 Contains fixes that were needed to allow it to be run on Android. Use the branch 'ttp-Android' as a base for any future changes, including pulling from upstream.
